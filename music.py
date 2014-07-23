@@ -10,11 +10,9 @@ import json
 import getopt
 import getpass
 import requests
-import pynotify
 import keybinder
 import gst
 import gtk
-
 
 # 基础类
 class MusicBase:
@@ -34,21 +32,10 @@ class MusicBase:
         self.playing = False
         next(self)
         
-        pynotify.init(self.app_name)
-        self.notify = pynotify.Notification('')
-        bus = self.player.get_bus()
-        bus.add_signal_watch()
-        bus.connect('message', self.on_message)
-
-    # gst 消息处理
-    def on_message(self, bus, message):
-        if message.type == gst.MESSAGE_EOS:
-            self.next()
-
     # 主线程函数，循环播放
     def mainloop(self):
         while True:
-            print self.title,self.url
+            #print self.title,self.url
             self.player.set_property('uri', self.url)
             self.player.set_state(gst.STATE_PLAYING)
             self.playing = True
@@ -85,6 +72,24 @@ class MusicBase:
     def destroy(self):
         self.thread._Thread__stop()
 
+# 主播放Console界面
+class MusicMainConsole():
+    def __init__(self):
+        self.fm = MusicBase()
+        self.fm.run()
+        bus = self.fm.player.get_bus()
+        bus.add_signal_watch()
+        bus.connect('message', self.on_message)
+
+    # gst 消息处理
+    def on_message(self, bus, message):
+        if message.type == gst.MESSAGE_EOS:
+            self.next(bus)
+
+    # 下一首
+    def next(self, widget):
+        self.fm.next()
+        print "播放：",self.fm.title
 
 # 主播放图形界面
 class MusicMain(gtk.Window):
@@ -104,6 +109,15 @@ class MusicMain(gtk.Window):
         self.connect('destroy', self.destroy)
 
         self.musicName.set_text(self.fm.title)
+        
+        bus = self.fm.player.get_bus()
+        bus.add_signal_watch()
+        bus.connect('message', self.on_message)
+
+    # gst 消息处理
+    def on_message(self, bus, message):
+        if message.type == gst.MESSAGE_EOS:
+            self.next(bus)
 
     # 创建主界面
     def createInterior(self):
@@ -172,7 +186,6 @@ class MusicMain(gtk.Window):
         elif event.keyval == gtk.keysyms.space \
             or event.keyval == gtk.keysyms.p:
             self.pause(widget)
-
 
 if __name__ == '__main__':
     gtk.threads_init()
